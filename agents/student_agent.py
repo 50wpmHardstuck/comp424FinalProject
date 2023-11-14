@@ -81,15 +81,15 @@ class StudentAgent(Agent):
             chess_board[pos_p1[0]][pos_p1[1]][self.dir_map[dir_p1]] = True
             ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
             if ended:
-                if s1> s2 return 0
-                else return 1
+                if s1> s2: return 0
+                else: return 1
 
             pos_p2, dir_p2 = p2.step(chess_board, pos_p2, pos_p1, max_step)
             chess_board[pos_p2[0]][pos_21[1]][self.dir_map[dir_p2]] = True
             ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
             if ended:
-                if s1 > s2 return 0
-                else return 1
+                if s1 > s2: return 0
+                else: return 1
         print("This should not be happening!!!, ERROR")
         return -1 #should never occur, error
 
