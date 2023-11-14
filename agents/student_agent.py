@@ -71,7 +71,7 @@ class StudentAgent(Agent):
         }
 
         
-    def check_endgame(chess_board, p0_pos, p1_pos):
+    def check_endgame(self, chess_board, p0_pos, p1_pos):
         """
         Check if the game ends and compute the current score of the agents.
 
@@ -85,7 +85,10 @@ class StudentAgent(Agent):
             The score of player 2.
         """
         #Variables that we need to implement the copied function (added more in the signature of the function) (used to be self)
-        board_size = np.size(chess_board, 1)
+        #print(chess_board)
+        #print(chess_board.shape())
+        board_size = chess_board.shape
+        board_size = board_size[0]
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         
         # Union-Find
@@ -128,22 +131,22 @@ class StudentAgent(Agent):
 
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         p1 = RandomAgent()
-        ended, s1, s2 = check_endgame(len(chess_board), my_pos, adv_pos)
-        counter = 0
+        #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
         pos_p1 = my_pos     #p1 is the enemy making a move first 
         pos_p2 = adv_pos    #p2 is us making out move second
         while True:
             #take a step, update the chess board and then check if the game ended
             pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
-            chess_board[pos_p1[0]][pos_p1[1]][self.dir_map[dir_p1]] = True
-            ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
+            chess_board[pos_p1[0]][pos_p1[1]][dir_p1] = True
+            #print('chess_board agter update:',chess_board)
+            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
                 if s1> s2: return 0
                 else: return 1
 
-            pos_p2, dir_p2 = p2.step(chess_board, pos_p2, pos_p1, max_step)
-            chess_board[pos_p2[0]][pos_p2[1]][self.dir_map[dir_p2]] = True
-            ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
+            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            chess_board[pos_p2[0]][pos_p2[1]][dir_p2] = True
+            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
                 if s1 > s2: return 0
                 else: return 1
@@ -170,14 +173,16 @@ class StudentAgent(Agent):
         # Some simple code to help you with timing. Consider checking 
         # time_taken during your search and breaking with the best answer
         # so far when it nears 2 seconds.
-        
         p1 = RandomAgent()
         output = p1.step(chess_board, my_pos, adv_pos, max_step)
-        
         start_time = time.time()
         time_taken = time.time() - start_time
-        
-        
+        sims = 0
+        while time_taken < 1.95:
+            self.run_simulation(chess_board, my_pos, adv_pos, max_step)
+            sims+= 1
+            time_taken = time.time()
+        print('NUMBER OF SIMS:', sims)
         print("My AI's turn took ", time_taken, "seconds.")
 
         # dummy return
