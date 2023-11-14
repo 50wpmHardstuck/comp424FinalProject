@@ -135,16 +135,23 @@ class StudentAgent(Agent):
         pos_p2 = adv_pos    #p2 is us making out move second
         while True:
             #take a step, update the chess board and then check if the game ended
-            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            try:
+                pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            except:
+                return 0
             chess_board[pos_p1[0]][pos_p1[1]][dir_p1] = True
             #print('chess_board agter update:',chess_board)
             ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
                 if s1> s2: return 0
                 else: return 1
-
-            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            try:
+                pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            except:
+                return 0
+            #print('Before change:', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
             chess_board[pos_p2[0]][pos_p2[1]][dir_p2] = True
+            #print('after change', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
             ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
                 if s1 > s2: return 0
@@ -179,9 +186,12 @@ class StudentAgent(Agent):
         sims = 0
         while time_taken < 1.95:
             self.run_simulation(chess_board, my_pos, adv_pos, max_step)
-            sims+= 1
-            time_taken = time.time()
+            sims += 1
+            #print(sims)
+            time_taken = time.time()-start_time
+        
         print('NUMBER OF SIMS:', sims)
+        sims = 0
         print("My AI's turn took ", time_taken, "seconds.")
 
         # dummy return
