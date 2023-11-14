@@ -69,7 +69,7 @@ class StudentAgent(Agent):
             "d": 2,
             "l": 3,
         }
-    def run_simulation(chess_board, my_pos, adv_pos, max_step):
+    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         p1 = RandomAgent()
         ended, s1, s2 = check_endgame(len(chess_board), my_pos, adv_pos)
         counter = 0
@@ -85,7 +85,7 @@ class StudentAgent(Agent):
                 else: return 1
 
             pos_p2, dir_p2 = p2.step(chess_board, pos_p2, pos_p1, max_step)
-            chess_board[pos_p2[0]][pos_21[1]][self.dir_map[dir_p2]] = True
+            chess_board[pos_p2[0]][pos_p2[1]][self.dir_map[dir_p2]] = True
             ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
             if ended:
                 if s1 > s2: return 0
