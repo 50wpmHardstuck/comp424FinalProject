@@ -95,6 +95,7 @@ class StudentAgent(Agent):
         
         start_time = time.time()
         time_taken = time.time() - start_time
+        print('can i push')
         
         print("My AI's turn took ", time_taken, "seconds.")
 
