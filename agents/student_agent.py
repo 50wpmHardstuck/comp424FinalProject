@@ -69,6 +69,7 @@ class StudentAgent(Agent):
             "d": 2,
             "l": 3,
         }
+
         
     def check_endgame(chess_board, p0_pos, p1_pos):
         """
@@ -124,6 +125,31 @@ class StudentAgent(Agent):
             return False, p0_score, p1_score
         
         return True, p0_score, p1_score
+
+    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
+        p1 = RandomAgent()
+        ended, s1, s2 = check_endgame(len(chess_board), my_pos, adv_pos)
+        counter = 0
+        pos_p1 = my_pos     #p1 is the enemy making a move first 
+        pos_p2 = adv_pos    #p2 is us making out move second
+        while True:
+            #take a step, update the chess board and then check if the game ended
+            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            chess_board[pos_p1[0]][pos_p1[1]][self.dir_map[dir_p1]] = True
+            ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
+            if ended:
+                if s1> s2: return 0
+                else: return 1
+
+            pos_p2, dir_p2 = p2.step(chess_board, pos_p2, pos_p1, max_step)
+            chess_board[pos_p2[0]][pos_p2[1]][self.dir_map[dir_p2]] = True
+            ended, s1, s2 = check_endgame(len(chess_board), pos_p1, pos_p2)
+            if ended:
+                if s1 > s2: return 0
+                else: return 1
+        print("This should not be happening!!!, ERROR")
+        return -1 #should never occur, error
+
 
     def step(self, chess_board, my_pos, adv_pos, max_step):
         """
