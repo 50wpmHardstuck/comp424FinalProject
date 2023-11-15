@@ -131,11 +131,11 @@ class StudentAgent(Agent):
         opposites = {0: 2, 1: 3, 2: 0, 3: 1}
         p1 = RandomAgent()
         #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
-        pos_p1 = my_pos     #p1 is the enemy making a move first 
-        pos_p2 = adv_pos    #p2 is us making out move second
+        pos_p1 = adv_pos    #p1 is the enemy making a move first 
+        pos_p2 = my_pos   #p2 is us making out move second
         while True:
             #take a step, update the chess board and then check if the game ended
-            pos_p1, dir = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
             '''
             try:
                 pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
@@ -143,21 +143,27 @@ class StudentAgent(Agent):
                 return 0
             '''
             r, c = pos_p1
-            chess_board[r, c, dir] = True
-            move = moves[dir]
-            chess_board[r + move[0], c + move[1], opposites[dir]] = True
+            chess_board[r, c, dir_p1] = True
+            move = moves[dir_p1]
+            chess_board[r + move[0], c + move[1], opposites[dir_p1]] = True
             
             #print('chess_board agter update:',chess_board)
             ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
                 if s1> s2: return 0
                 else: return 1
+            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            '''
             try:
-                pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+                pos, dir = p1.step(chess_board, pos_p2, pos_p1, max_step)
             except:
                 return 0
+                '''
             #print('Before change:', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
-            chess_board[pos_p2[0]][pos_p2[1]][dir_p2] = True
+            r, c = pos_p2
+            chess_board[r, c, dir_p2] = True
+            move = moves[dir_p2]
+            chess_board[r + move[0], c + move[1], opposites[dir_p2]] = True
             #print('after change', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
             ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
@@ -192,7 +198,8 @@ class StudentAgent(Agent):
         time_taken = time.time() - start_time
         sims = 0
         while time_taken < 1.95:
-            self.run_simulation(chess_board, my_pos, adv_pos, max_step)
+            chess_board_copy = np.copy(chess_board)
+            self.run_simulation(chess_board_copy, my_pos, adv_pos, max_step)
             sims += 1
             #print(sims)
             time_taken = time.time()-start_time
