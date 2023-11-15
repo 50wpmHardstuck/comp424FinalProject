@@ -106,9 +106,7 @@ class StudentAgent(Agent):
 
         for r in range(board_size):
             for c in range(board_size):
-                for dir, move in enumerate(
-                    moves[1:3]
-                ):  # Only check down and right
+                for dir, move in enumerate(moves[1:3]):  # Only check down and right
                     if chess_board[r, c, dir + 1]:
                         continue
                     pos_a = find((r, c))
@@ -129,17 +127,26 @@ class StudentAgent(Agent):
         return True, p0_score, p1_score
 
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        opposites = {0: 2, 1: 3, 2: 0, 3: 1}
         p1 = RandomAgent()
         #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
         pos_p1 = my_pos     #p1 is the enemy making a move first 
         pos_p2 = adv_pos    #p2 is us making out move second
         while True:
             #take a step, update the chess board and then check if the game ended
+            pos_p1, dir = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            '''
             try:
                 pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
             except:
                 return 0
-            chess_board[pos_p1[0]][pos_p1[1]][dir_p1] = True
+            '''
+            r, c = pos_p1
+            chess_board[r, c, dir] = True
+            move = moves[dir]
+            chess_board[r + move[0], c + move[1], opposites[dir]] = True
+            
             #print('chess_board agter update:',chess_board)
             ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
