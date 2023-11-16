@@ -6,6 +6,204 @@ import numpy as np
 from copy import deepcopy
 import time
 
+class Node(object):
+    def __init__(self, parent, action):
+        #self.name=key
+        self.parent = parent
+        self.children = []
+        self.visits = 0
+        self.value = 0
+        self.move = action[0]
+        self.wall_place = action[1]
+    
+    def set_children(self, node):
+        print('hi')
+        return 
+
+
+class MCTS(object):
+    def __init__(self, root, chess_board, my_pos, adv_pos):
+        self.root = root
+        self.chess_board = chess_board
+        self.my_pos = my_pos
+        self.adv_pos = adv_pos
+        self.moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        self.opposites = {0: 2, 1: 3, 2: 0, 3: 1}
+
+    def set_barrier(self, pos, dir, chess_board):
+        
+        r, c = pos
+        chess_board[r, c, dir] = True
+        move = self.moves[dir]
+        chess_board[r + move[0], c + move[1], self.opposites[dir]] = True
+        
+    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
+        #chess_board = c_board.copy()
+        #moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        #opposites = {0: 2, 1: 3, 2: 0, 3: 1}
+        p1 = RandomAgent()
+        #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
+        pos_p1 = adv_pos    #p1 is the enemy making a move first 
+        pos_p2 = my_pos   #p2 is us making out move second
+        while True:
+            #take a step, update the chess board and then check if the game ended
+            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            '''
+            try:
+                pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            except:
+                return 0
+            '''
+            #r, c = pos_p1
+            #chess_board[r, c, dir_p1] = True
+            #move = moves[dir_p1]
+            #chess_board[r + move[0], c + move[1], opposites[dir_p1]] = True
+            self.set_barrier(pos_p1, dir_p1, chess_board)
+            #print('chess_board agter update:',chess_board)
+            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
+            if ended:
+                if s1 > s2: return 0
+                elif s1 == s2: return 0.5
+                else: return 1
+            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            '''
+            try:
+                pos, dir = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            except:
+                return 0
+                '''
+            #print('Before change:', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
+            #r, c = pos_p2
+            #chess_board[r, c, dir_p2] = True
+            #move = moves[dir_p2]
+            #chess_board[r + move[0], c + move[1], opposites[dir_p2]] = True
+            #print('after change', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
+            self.set_barrier(pos_p2, dir_p2, chess_board)
+
+            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
+            if ended:
+                if s1 > s2: return 0
+                elif s1 == s2: return 0.5
+                else: return 1
+        print("This should not be happening!!!, ERROR")
+        return -1 #should never occur, error
+    
+    def check_endgame(self, chess_board, p0_pos, p1_pos):
+        """
+        Check if the game ends and compute the current score of the agents.
+
+        Returns
+        -------
+        is_endgame : bool
+            Whether the game ends.
+        player_1_score : int
+            The score of player 1.
+        player_2_score : int
+            The score of player 2.
+        """
+        #Variables that we need to implement the copied function (added more in the signature of the function) (used to be self)
+        #print(chess_board)
+        #print(chess_board.shape())
+        board_size = chess_board.shape
+        board_size = board_size[0]
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        
+        # Union-Find
+        father = dict()
+        for r in range(board_size):
+            for c in range(board_size):
+                father[(r, c)] = (r, c)
+
+        def find(pos):
+            if father[pos] != pos:
+                father[pos] = find(father[pos])
+            return father[pos]
+
+        def union(pos1, pos2):
+            father[pos1] = pos2
+
+        for r in range(board_size):
+            for c in range(board_size):
+                for dir, move in enumerate(moves[1:3]):  # Only check down and right
+                    if chess_board[r, c, dir + 1]:
+                        continue
+                    pos_a = find((r, c))
+                    pos_b = find((r + move[0], c + move[1]))
+                    if pos_a != pos_b:
+                        union(pos_a, pos_b)
+
+        for r in range(board_size):
+            for c in range(board_size):
+                find((r, c))
+        p0_r = find(tuple(p0_pos))
+        p1_r = find(tuple(p1_pos))
+        p0_score = list(father.values()).count(p0_r)
+        p1_score = list(father.values()).count(p1_r)
+        if p0_r == p1_r:
+            return False, p0_score, p1_score
+        
+        return True, p0_score, p1_score
+    
+    def get_value(node):
+        c = 1.41421 #sqrt of 2
+        e = 2.71828 #e
+        exploit = node.value/node.visits
+        #have to do a weird approximation of log with exponent of 1/e
+        explore = c * (((node.parent.visits)^(1/e))/(node.visits))^(1/2) #c*sqrt(log_e(parent visits)/node visits)
+
+        return exploit + explore
+
+
+    def choose_next_expansion(self, node):
+        best_score = 0
+        best_n = None
+        for n in node.children:
+            if self.get_value(n) > best_score:
+                best_score = self.get_value(n)
+                best_n = n
+        return best_n
+    
+    def back_prop(self, node, value):
+        if node != self.root:
+            node.value += value
+            node.visits += 1
+            return self.back_prop(self, node.parent, value)
+        else:
+            node.value += value
+            node.visits += 1
+            return
+
+    def find_best_move(self):
+        root = self.root
+        root.set_children()
+
+        for n in root.children:
+            c_board = self.chess_board.copy()
+            self.set_barrier(n.move, n.wall_place, c_board)
+            res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
+            self.back_prop(n, res)
+
+        start_time = time.time()
+        time_taken = time.time() - start_time
+        while time_taken < 1.97:
+            n = self.choose_next_expansion(root)
+            c_board = self.chess_board.copy()
+            self.set_barrier(n.move, n.wall_place, c_board)
+            res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
+            self.back_prop(n, res)
+            time_taken = time.time() - start_time
+        
+        best_choice = None
+        best_value = 0
+        for n in root.children:
+            if n.value/n.visits > best_value:
+                best_value = n.value/n.visits
+                best_choice = n
+
+        return best_choice.move, best_choice.wall_place
+
+
+    
 class RandomAgent(Agent):
     """
     Example of an agent which takes random decisions
@@ -69,7 +267,52 @@ class StudentAgent(Agent):
             "d": 2,
             "l": 3,
         }
-        
+    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        opposites = {0: 2, 1: 3, 2: 0, 3: 1}
+        p1 = RandomAgent()
+        #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
+        pos_p1 = adv_pos    #p1 is the enemy making a move first 
+        pos_p2 = my_pos   #p2 is us making out move second
+        while True:
+            #take a step, update the chess board and then check if the game ended
+            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            '''
+            try:
+                pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
+            except:
+                return 0
+            '''
+            r, c = pos_p1
+            chess_board[r, c, dir_p1] = True
+            move = moves[dir_p1]
+            chess_board[r + move[0], c + move[1], opposites[dir_p1]] = True
+            
+            #print('chess_board agter update:',chess_board)
+            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
+            if ended:
+                if s1> s2: return 0
+                else: return 1
+            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            '''
+            try:
+                pos, dir = p1.step(chess_board, pos_p2, pos_p1, max_step)
+            except:
+                return 0
+                '''
+            #print('Before change:', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
+            r, c = pos_p2
+            chess_board[r, c, dir_p2] = True
+            move = moves[dir_p2]
+            chess_board[r + move[0], c + move[1], opposites[dir_p2]] = True
+            #print('after change', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
+            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
+            if ended:
+                if s1 > s2: return 0
+                else: return 1
+        print("This should not be happening!!!, ERROR")
+        return -1 #should never occur, error
+    
     def check_endgame(self, chess_board, p0_pos, p1_pos):
         """
         Check if the game ends and compute the current score of the agents.
@@ -125,54 +368,7 @@ class StudentAgent(Agent):
             return False, p0_score, p1_score
         
         return True, p0_score, p1_score
-
-    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        opposites = {0: 2, 1: 3, 2: 0, 3: 1}
-        p1 = RandomAgent()
-        #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
-        pos_p1 = adv_pos    #p1 is the enemy making a move first 
-        pos_p2 = my_pos   #p2 is us making out move second
-        while True:
-            #take a step, update the chess board and then check if the game ended
-            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
-            '''
-            try:
-                pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
-            except:
-                return 0
-            '''
-            r, c = pos_p1
-            chess_board[r, c, dir_p1] = True
-            move = moves[dir_p1]
-            chess_board[r + move[0], c + move[1], opposites[dir_p1]] = True
-            
-            #print('chess_board agter update:',chess_board)
-            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-            if ended:
-                if s1> s2: return 0
-                else: return 1
-            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
-            '''
-            try:
-                pos, dir = p1.step(chess_board, pos_p2, pos_p1, max_step)
-            except:
-                return 0
-                '''
-            #print('Before change:', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
-            r, c = pos_p2
-            chess_board[r, c, dir_p2] = True
-            move = moves[dir_p2]
-            chess_board[r + move[0], c + move[1], opposites[dir_p2]] = True
-            #print('after change', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
-            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-            if ended:
-                if s1 > s2: return 0
-                else: return 1
-        print("This should not be happening!!!, ERROR")
-        return -1 #should never occur, error
-
-
+    
     def step(self, chess_board, my_pos, adv_pos, max_step):
         """
         Implement the step function of your agent here.
@@ -205,7 +401,7 @@ class StudentAgent(Agent):
             time_taken = time.time()-start_time
         
         print('NUMBER OF SIMS:', sims)
-        sims = 0
+
         print("My AI's turn took ", time_taken, "seconds.")
 
         # dummy return

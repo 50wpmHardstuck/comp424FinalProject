@@ -48,5 +48,5 @@ class RandomAgent(Agent):
         # Sanity check, no way to be fully enclosed in a square, else game already ended
         assert len(allowed_barriers)>=1 
         dir = allowed_barriers[np.random.randint(0, len(allowed_barriers))]
-
+        print(allowed_dirs)
         return my_pos, dir
