@@ -16,26 +16,58 @@ class Node(object):
         self.move = action[0]
         self.wall_place = action[1]
     
-    def set_children(self, node):
-        print('hi')
-        return 
+    
 
 
 class MCTS(object):
-    def __init__(self, root, chess_board, my_pos, adv_pos):
+    def __init__(self, root, chess_board, my_pos, adv_pos, max_steps):
         self.root = root
         self.chess_board = chess_board
         self.my_pos = my_pos
         self.adv_pos = adv_pos
         self.moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         self.opposites = {0: 2, 1: 3, 2: 0, 3: 1}
+        self.max_step = max_steps
 
     def set_barrier(self, pos, dir, chess_board):
-        
         r, c = pos
         chess_board[r, c, dir] = True
         move = self.moves[dir]
         chess_board[r + move[0], c + move[1], self.opposites[dir]] = True
+        
+    def find_moves(self, node):
+        r, c = self.my_pos
+        allowed_dirs = [ d                                
+                for d in range(0,4)                           # 4 moves possible
+                if not self.chess_board[r,c,d] and                 # chess_board True means wall
+                not self.adv_pos == (r+self.moves[d][0],c+self.moves[d][1])]
+        for dir in allowed_dirs:
+            new_pos = tuple(map(lambda i, j: i + j, self.my_pos, self.moves[dir]))
+            allowed_barriers=[i for i in range(0,4) if not self.chess_board[r,c,i]]
+            for wall in allowed_barriers:
+                new_n= Node(node, (new_pos, wall))
+                node.children.append(new_n)
+        '''
+        moves = self.moves
+        steps = self.max_step
+        print('steps:', steps)
+        for _ in range(steps):
+            r, c = node.move
+
+            # Build a list of the moves we can make
+            allowed_dirs = [ d                                
+                for d in range(0,4)                           # 4 moves possible
+                if not self.chess_board[r,c,d] and                 # chess_board True means wall
+                not self.adv_pos == (r+moves[d][0],c+moves[d][1])] # cannot move through Adversary
+        print('allowed dirs:', allowed_dirs)
+        for dir in allowed_dirs:
+            new_pos = tuple(map(lambda i, j: i + j, self.my_pos, moves[dir]))
+            allowed_barriers=[i for i in range(0,4) if not self.chess_board[r,c,i]]
+            for wall in allowed_barriers:
+                new_n= Node(node, (new_pos, wall))
+                node.children.append(new_n)
+                '''
+        return 
         
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         #chess_board = c_board.copy()
@@ -144,20 +176,22 @@ class MCTS(object):
         
         return True, p0_score, p1_score
     
-    def get_value(node):
+    def get_value(self, node):
         c = 1.41421 #sqrt of 2
         e = 2.71828 #e
+        def log_approx(x):
+            return 100*(x**(1/100))-100
         exploit = node.value/node.visits
         #have to do a weird approximation of log with exponent of 1/e
-        explore = c * (((node.parent.visits)^(1/e))/(node.visits))^(1/2) #c*sqrt(log_e(parent visits)/node visits)
-
+        explore = c * (log_approx(node.parent.visits)/(node.visits))**(1/2) #c*sqrt(log_e(parent visits)/node visits)
         return exploit + explore
 
 
     def choose_next_expansion(self, node):
         best_score = 0
-        best_n = None
+        best_n = "not getting reset"
         for n in node.children:
+            print(n)
             if self.get_value(n) > best_score:
                 best_score = self.get_value(n)
                 best_n = n
@@ -167,7 +201,7 @@ class MCTS(object):
         if node != self.root:
             node.value += value
             node.visits += 1
-            return self.back_prop(self, node.parent, value)
+            return self.back_prop(node.parent, value)
         else:
             node.value += value
             node.visits += 1
@@ -175,7 +209,6 @@ class MCTS(object):
 
     def find_best_move(self):
         root = self.root
-        root.set_children()
 
         for n in root.children:
             c_board = self.chess_board.copy()
@@ -185,7 +218,7 @@ class MCTS(object):
 
         start_time = time.time()
         time_taken = time.time() - start_time
-        while time_taken < 1.97:
+        while time_taken < 1.95:
             n = self.choose_next_expansion(root)
             c_board = self.chess_board.copy()
             self.set_barrier(n.move, n.wall_place, c_board)
@@ -388,19 +421,25 @@ class StudentAgent(Agent):
         # Some simple code to help you with timing. Consider checking 
         # time_taken during your search and breaking with the best answer
         # so far when it nears 2 seconds.
-        p1 = RandomAgent()
-        output = p1.step(chess_board, my_pos, adv_pos, max_step)
+        #p1 = RandomAgent()
+        #output = p1.step(chess_board, my_pos, adv_pos, max_step)
         start_time = time.time()
         time_taken = time.time() - start_time
         sims = 0
-        while time_taken < 1.95:
+        root = Node(None, (my_pos, None))
+        uct_tree = MCTS(root, chess_board, my_pos, adv_pos, max_step)
+        uct_tree.find_moves(root)
+        output = uct_tree.find_best_move()
+
+        '''while time_taken < 1.95:
             chess_board_copy = np.copy(chess_board)
             self.run_simulation(chess_board_copy, my_pos, adv_pos, max_step)
             sims += 1
             #print(sims)
-            time_taken = time.time()-start_time
+            time_taken = time.time()-start_time'''
         
-        print('NUMBER OF SIMS:', sims)
+        print('NUMBER OF SIMS:', uct_tree.root.visits)
+        time_taken = time.time() - start_time
 
         print("My AI's turn took ", time_taken, "seconds.")
 
