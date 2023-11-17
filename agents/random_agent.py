@@ -19,7 +19,7 @@ class RandomAgent(Agent):
         # Moves (Up, Right, Down, Left)
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         steps = np.random.randint(0, max_step + 1)
-        
+
         # Pick steps random but allowable moves
         for _ in range(steps):
             r, c = my_pos
@@ -48,5 +48,5 @@ class RandomAgent(Agent):
         # Sanity check, no way to be fully enclosed in a square, else game already ended
         assert len(allowed_barriers)>=1 
         dir = allowed_barriers[np.random.randint(0, len(allowed_barriers))]
-        print(allowed_dirs)
+        #print(allowed_dirs)
         return my_pos, dir
