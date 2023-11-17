@@ -15,6 +15,9 @@ class Node(object):
         self.value = 0
         self.move = action[0]
         self.wall_place = action[1]
+        
+    def addChild(self, node):
+        self.children.append(node)
     
     
 
@@ -28,6 +31,13 @@ class MCTS(object):
         self.moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         self.opposites = {0: 2, 1: 3, 2: 0, 3: 1}
         self.max_step = max_steps
+        
+    def set_children(self, root):
+        allowed_moves = self.get_array_first_move()
+        for (move, dir) in allowed_moves:
+            child = Node(root, (move, dir))
+            root.addChild(child)
+        return 
 
     def set_barrier(self, pos, dir, chess_board):
         r, c = pos
@@ -35,39 +45,42 @@ class MCTS(object):
         move = self.moves[dir]
         chess_board[r + move[0], c + move[1], self.opposites[dir]] = True
         
-    def find_moves(self, node):
-        r, c = self.my_pos
-        allowed_dirs = [ d                                
-                for d in range(0,4)                           # 4 moves possible
-                if not self.chess_board[r,c,d] and                 # chess_board True means wall
-                not self.adv_pos == (r+self.moves[d][0],c+self.moves[d][1])]
-        for dir in allowed_dirs:
-            new_pos = tuple(map(lambda i, j: i + j, self.my_pos, self.moves[dir]))
-            allowed_barriers=[i for i in range(0,4) if not self.chess_board[r,c,i]]
-            for wall in allowed_barriers:
-                new_n= Node(node, (new_pos, wall))
-                node.children.append(new_n)
-        '''
-        moves = self.moves
-        steps = self.max_step
-        print('steps:', steps)
-        for _ in range(steps):
-            r, c = node.move
+    def check_boundary(self, pos):
+        r, c = pos
+        return 0 <= r < self.chess_board.shape[0] and 0 <= c < self.chess_board.shape[0]
+    
+    def get_array_first_move(self):
+        # Get position of the adversary 
+        adv_pos = self.adv_pos
 
-            # Build a list of the moves we can make
-            allowed_dirs = [ d                                
-                for d in range(0,4)                           # 4 moves possible
-                if not self.chess_board[r,c,d] and                 # chess_board True means wall
-                not self.adv_pos == (r+moves[d][0],c+moves[d][1])] # cannot move through Adversary
-        print('allowed dirs:', allowed_dirs)
-        for dir in allowed_dirs:
-            new_pos = tuple(map(lambda i, j: i + j, self.my_pos, moves[dir]))
-            allowed_barriers=[i for i in range(0,4) if not self.chess_board[r,c,i]]
-            for wall in allowed_barriers:
-                new_n= Node(node, (new_pos, wall))
-                node.children.append(new_n)
-                '''
-        return 
+        # BFS
+        state_queue = [(self.my_pos, 0)]
+        allowed_moves = []
+        
+        for dir, move in enumerate(self.moves):
+            r, c = self.my_pos
+            if self.chess_board[r, c, dir]:
+                continue
+            allowed_moves.append((tuple(self.my_pos), dir))
+        while state_queue:
+            cur_pos, cur_step = state_queue.pop(0)
+            r, c = cur_pos
+            if cur_step == self.max_step:
+                continue
+            for dir, move in enumerate(self.moves):
+                next_pos = tuple(map(lambda x, y: x + y, cur_pos, move))
+                if not self.check_boundary(next_pos): #check if the move moves outside the boundary
+                    continue
+                if self.chess_board[r, c, dir]: #check if there is a wall in the way
+                    continue
+                if np.array_equal(next_pos, adv_pos): #check if the adversary is in the way
+                    continue
+                if (tuple(next_pos), dir) in allowed_moves: #check if we already have the move
+                    continue
+                allowed_moves.append((tuple(next_pos), dir))
+                state_queue.append((next_pos, cur_step + 1))
+
+        return allowed_moves
         
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         #chess_board = c_board.copy()
@@ -300,107 +313,6 @@ class StudentAgent(Agent):
             "d": 2,
             "l": 3,
         }
-    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        opposites = {0: 2, 1: 3, 2: 0, 3: 1}
-        p1 = RandomAgent()
-        #ended, s1, s2 = self.check_endgame(chess_board, my_pos, adv_pos)
-        pos_p1 = adv_pos    #p1 is the enemy making a move first 
-        pos_p2 = my_pos   #p2 is us making out move second
-        while True:
-            #take a step, update the chess board and then check if the game ended
-            pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
-            '''
-            try:
-                pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
-            except:
-                return 0
-            '''
-            r, c = pos_p1
-            chess_board[r, c, dir_p1] = True
-            move = moves[dir_p1]
-            chess_board[r + move[0], c + move[1], opposites[dir_p1]] = True
-            
-            #print('chess_board agter update:',chess_board)
-            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-            if ended:
-                if s1> s2: return 0
-                else: return 1
-            pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
-            '''
-            try:
-                pos, dir = p1.step(chess_board, pos_p2, pos_p1, max_step)
-            except:
-                return 0
-                '''
-            #print('Before change:', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
-            r, c = pos_p2
-            chess_board[r, c, dir_p2] = True
-            move = moves[dir_p2]
-            chess_board[r + move[0], c + move[1], opposites[dir_p2]] = True
-            #print('after change', chess_board[pos_p2[0]][pos_p2[1]][dir_p2])
-            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-            if ended:
-                if s1 > s2: return 0
-                else: return 1
-        print("This should not be happening!!!, ERROR")
-        return -1 #should never occur, error
-    
-    def check_endgame(self, chess_board, p0_pos, p1_pos):
-        """
-        Check if the game ends and compute the current score of the agents.
-
-        Returns
-        -------
-        is_endgame : bool
-            Whether the game ends.
-        player_1_score : int
-            The score of player 1.
-        player_2_score : int
-            The score of player 2.
-        """
-        #Variables that we need to implement the copied function (added more in the signature of the function) (used to be self)
-        #print(chess_board)
-        #print(chess_board.shape())
-        board_size = chess_board.shape
-        board_size = board_size[0]
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        
-        # Union-Find
-        father = dict()
-        for r in range(board_size):
-            for c in range(board_size):
-                father[(r, c)] = (r, c)
-
-        def find(pos):
-            if father[pos] != pos:
-                father[pos] = find(father[pos])
-            return father[pos]
-
-        def union(pos1, pos2):
-            father[pos1] = pos2
-
-        for r in range(board_size):
-            for c in range(board_size):
-                for dir, move in enumerate(moves[1:3]):  # Only check down and right
-                    if chess_board[r, c, dir + 1]:
-                        continue
-                    pos_a = find((r, c))
-                    pos_b = find((r + move[0], c + move[1]))
-                    if pos_a != pos_b:
-                        union(pos_a, pos_b)
-
-        for r in range(board_size):
-            for c in range(board_size):
-                find((r, c))
-        p0_r = find(tuple(p0_pos))
-        p1_r = find(tuple(p1_pos))
-        p0_score = list(father.values()).count(p0_r)
-        p1_score = list(father.values()).count(p1_r)
-        if p0_r == p1_r:
-            return False, p0_score, p1_score
-        
-        return True, p0_score, p1_score
     
     def step(self, chess_board, my_pos, adv_pos, max_step):
         """
@@ -428,7 +340,7 @@ class StudentAgent(Agent):
         sims = 0
         root = Node(None, (my_pos, None))
         uct_tree = MCTS(root, chess_board, my_pos, adv_pos, max_step)
-        uct_tree.find_moves(root)
+        uct_tree.set_children(root)
         output = uct_tree.find_best_move()
 
         '''while time_taken < 1.95:
