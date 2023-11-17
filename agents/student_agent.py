@@ -15,10 +15,10 @@ class Node(object):
         self.value = 0
         self.move = action[0]
         self.wall_place = action[1]
+        
+    def addChild(self, node):
+        self.children.append(node)
     
-    def set_children(self, node):
-        print('hi')
-        return 
 
 
 class MCTS(object):
@@ -29,6 +29,13 @@ class MCTS(object):
         self.adv_pos = adv_pos
         self.moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         self.opposites = {0: 2, 1: 3, 2: 0, 3: 1}
+        
+    def set_children(self, root):
+        allowed_moves = self.get_array_first_move()
+        for (move, dir) in allowed_moves:
+            child = Node(root, (move, dir))
+            root.addChild(child)
+        return 
 
     def set_barrier(self, pos, dir, chess_board):
         
@@ -36,6 +43,43 @@ class MCTS(object):
         chess_board[r, c, dir] = True
         move = self.moves[dir]
         chess_board[r + move[0], c + move[1], self.opposites[dir]] = True
+        
+    def check_boundary(self, pos):
+        r, c = pos
+        return 0 <= r < self.board_size and 0 <= c < self.board_size
+    
+    def get_array_first_move(self):
+        # Get position of the adversary 
+        adv_pos = self.adv_pos
+
+        # BFS
+        state_queue = [(self.my_pos, 0)]
+        allowed_moves = []
+        
+        for dir, move in enumerate(self.moves):
+            r, c = self.my_pos
+            if self.chess_board[r, c, dir]:
+                continue
+            allowed_moves.append((tuple(self.mypos), dir))
+        while state_queue:
+            cur_pos, cur_step = state_queue.pop(0)
+            r, c = cur_pos
+            if cur_step == self.max_step:
+                continue
+            for dir, move in enumerate(self.moves):
+                if not self.check_boundary(cur_pos + move): #check if the move moves outside the boundary
+                    continue
+                if self.chess_board[r, c, dir]: #check if there is a wall in the way
+                    continue
+                next_pos = cur_pos + move
+                if np.array_equal(next_pos, adv_pos): #check if the adversary is in the way
+                    continue
+                if (tuple(next_pos), dir) in allowed_moves: #check if we already have the move
+                    continue
+                allowed_moves.append((tuple(next_pos), dir))
+                state_queue.append((next_pos, cur_step + 1))
+
+        return allowed_moves
         
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         #chess_board = c_board.copy()
