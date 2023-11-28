@@ -83,7 +83,8 @@ class MCTS(object):
                     continue
                 allowed_moves.append((tuple(next_pos), dir))
                 state_queue.append((next_pos, cur_step + 1))
-
+        #print(allowed_moves)
+        #print(len(allowed_moves))
         return allowed_moves
         
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
@@ -255,11 +256,11 @@ class MCTS(object):
         best_choice = None
 
         for i in root.children:
-            print('node', counter, 'winrate', i.value/i.visits)
+            #print('node', counter, 'winrate', i.value/i.visits)
             if i.value/i.visits > best_winrate:
                 best_choice = i
                 best_winrate = i.value/i.visits
-            counter += 1
+            #counter += 
         print(best_choice.value/best_choice.visits)
         return best_choice.move, best_choice.wall_place
 
