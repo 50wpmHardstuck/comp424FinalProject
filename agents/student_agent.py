@@ -81,6 +81,8 @@ class MCTS(object):
                     continue
                 if (tuple(next_pos), dir) in allowed_moves: #check if we already have the move
                     continue
+                #Check if set yourself in a corner
+                
                 allowed_moves.append((tuple(next_pos), dir))
                 state_queue.append((next_pos, cur_step + 1))
         #print(allowed_moves)
@@ -234,7 +236,9 @@ class MCTS(object):
         root = self.root
         start_time = time.time()
         time_taken = time.time() - start_time               
-        for n in root.children:
+        for ind, n in enumerate(root.children):
+            #print(ind)
+            #breakpoint()
             c_board = self.chess_board.copy()
             self.set_barrier(n.move, n.wall_place, c_board)
             res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
@@ -279,28 +283,50 @@ class RandomAgent(Agent):
     def step(self, chess_board, my_pos, adv_pos, max_step):
         # Moves (Up, Right, Down, Left)
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        steps = np.random.randint(0, max_step + 1)
+        r, c = my_pos
+        count_walls = int(chess_board[r, c, 0]) + int(chess_board[r, c, 1]) + int(chess_board[r, c, 2]) + int(chess_board[r, c, 3])
+        if (count_walls < 3):
+            steps = np.random.randint(0, max_step + 1)
+        else:
+            steps = np.random.randint(1, max_step + 1)
+            
+        #steps = np.random.randint(0, max_step + 1)
 
         # Pick steps random but allowable moves
-        for _ in range(steps):
-            r, c = my_pos
-
-            # Build a list of the moves we can make
-            allowed_dirs = [ d                                
-                for d in range(0,4)                           # 4 moves possible
-                if not chess_board[r,c,d] and                 # chess_board True means wall
-                not adv_pos == (r+moves[d][0],c+moves[d][1])] # cannot move through Adversary
-
-            if len(allowed_dirs)==0:
-                # If no possible move, we must be enclosed by our Adversary
+        count_walls = 4
+        break_loop = False
+        r_new, c_new = my_pos
+        og_pos = my_pos
+        #allowed_tries = 0
+        while(True):
+            #allowed_tries += 1
+            my_pos = og_pos
+            for _ in range(steps):
+                r, c = my_pos
+                # Build a list of the moves we can make
+                allowed_dirs = [ d                                
+                    for d in range(0,4)                           # 4 moves possible
+                    if not chess_board[r,c,d] and                 # chess_board True means wall
+                    not adv_pos == (r+moves[d][0],c+moves[d][1])] # cannot move through Adversary
+                if len(allowed_dirs)==0:
+                    # If no possible move, we must be enclosed by our Adversary
+                    break_loop = True
+                    break
+                random_dir = allowed_dirs[np.random.randint(0, len(allowed_dirs))]
+                # This is how to update a row,col by the entries in moves 
+                # to be consistent with game logic
+                m_r, m_c = moves[random_dir]
+                my_pos = (r + m_r, c + m_c)
+                r_new = r+m_r
+                c_new = c+m_c  
+                #print(int(chess_board[r_new, c_new, 0]))
+            
+            if(break_loop == True):
                 break
-
-            random_dir = allowed_dirs[np.random.randint(0, len(allowed_dirs))]
-
-            # This is how to update a row,col by the entries in moves 
-            # to be consistent with game logic
-            m_r, m_c = moves[random_dir]
-            my_pos = (r + m_r, c + m_c)
+            #print(chess_board[r_new, c_new, 0], chess_board[r_new, c_new, 1], chess_board[r_new, c_new, 2], chess_board[r_new, c_new, 3])
+            count_walls = int(chess_board[r_new, c_new, 0]) + int(chess_board[r_new, c_new, 1]) + int(chess_board[r_new, c_new, 2]) + int(chess_board[r_new, c_new, 3])
+            if (count_walls < 3):
+                break
 
         # Final portion, pick where to put our new barrier, at random
         r, c = my_pos
