@@ -234,8 +234,8 @@ class RandomAgent(Agent):
         # Moves (Up, Right, Down, Left)
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         r, c = my_pos
-        count_walls = int(chess_board[r, c, 0]) + int(chess_board[r, c, 1]) + int(chess_board[r, c, 2]) + int(chess_board[r, c, 3])
-        if (count_walls < 3):
+        count_walls_start = int(chess_board[r, c, 0]) + int(chess_board[r, c, 1]) + int(chess_board[r, c, 2]) + int(chess_board[r, c, 3])
+        if (count_walls_start < 3):
             steps = np.random.randint(0, max_step + 1)
         else:
             steps = np.random.randint(1, max_step + 1)
@@ -275,10 +275,10 @@ class RandomAgent(Agent):
             count_walls = int(chess_board[r_new, c_new, 0]) + int(chess_board[r_new, c_new, 1]) + int(chess_board[r_new, c_new, 2]) + int(chess_board[r_new, c_new, 3])
             if (count_walls < 3):
                 break
-            if steps == 1:
-                steps += 1
+            if (count_walls_start < 3):
+                steps = np.random.randint(0, max_step + 1)
             else:
-                steps -= 1
+                steps = np.random.randint(1, max_step + 1)
 
         # Final portion, pick where to put our new barrier, at random
         r, c = my_pos
