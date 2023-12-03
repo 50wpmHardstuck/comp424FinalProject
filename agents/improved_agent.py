@@ -14,10 +14,87 @@ class Node(object):
         self.value = 0
         self.move = action[0]          
         self.wall_place = action[1]
+        self.continuations = 0  #number of moves we can make after this move
+        self.blocks = 0 #number of moves the opponent can make after this move
         
     def addChild(self, node):
         self.children.append(node)
+
+class MaxHeap(object):
+    def __init__(self, ns):
+        self.nodes = []
+        for node in ns:
+            self.add(node)
+        #print(self.nodes)
+
+    def swap(self, ind1, ind2):
+        tmp = self.nodes[ind1]
+        self.nodes[ind1] = self.nodes[ind2]
+        self.nodes[ind2] = tmp
+
+    def has_right_child(self, ind):
+        return (2*ind+2) < len(self.nodes)
     
+    def has_left_child(self, ind):
+        return (2*ind+1) < len(self.nodes)
+    
+    def parent_ind(self, ind):
+        return (ind-1)//2
+    
+    def get_value(self, ind):
+        return self.nodes[ind].continuations + self.nodes[ind].blocks
+
+    def upheap(self, ind):
+        if ind == 0:
+            return self.nodes
+        else:
+            p_ind = self.parent_ind(ind)
+            if self.get_value(ind) > self.get_value(p_ind):
+                self.swap(self.parent_ind(ind), ind)
+                self.upheap(p_ind)
+            else:
+                return self.nodes
+            
+    def add(self, node):
+        self.nodes.append(node)
+        self.upheap(len(self.nodes)-1)
+
+    def downheap(self, ind):
+        #if we have no children then return
+        if not self.has_left_child(ind):    
+            return self.nodes
+        
+        if self.has_right_child(ind) and \
+            self.get_value(ind*2+1) < self.get_value(ind*2+2):
+            smaller_child = ind*2+2
+        else:
+            smaller_child = ind*2+1     #left child index since no right child
+
+        if self.get_value(ind) > self.get_value(smaller_child):
+            return self.nodes
+        else:
+            self.swap(ind, smaller_child)
+            return self.downheap(smaller_child)
+        
+    def get_max(self):
+        if len(self.nodes) == 0:
+            print('empty heap, cannot get max')
+            return None
+        max = self.nodes[0]
+        self.nodes[0] = self.nodes[len(self.nodes)-1]
+        self.nodes = self.nodes[:-1]
+        self.downheap(0)
+        #print(max)
+        return max
+    
+    def heapsort(self, num, input):
+        heap = MaxHeap(input)
+        output = []
+        max_ind = min(num, len(input))
+        for _ in range(max_ind):
+            output.append(heap.get_max())
+       # print(output)
+        return output   
 
 class MCTS(object):
     def __init__(self, root, chess_board, my_pos, adv_pos, max_steps):
@@ -38,10 +115,16 @@ class MCTS(object):
           #  root.addChild(child)
           #  print(len(root.children))
           #  return
+        child_list = []
         for (move, dir) in allowed_moves:
             child = Node(root, (move, dir))
-            root.addChild(child)
-        print(len(root.children))
+            child_list.append(child)
+        #print(child_list)
+        good_moves = MaxHeap.heapsort(self, 5, child_list)
+        for n in good_moves:
+            root.addChild(n)
+        #print(len(root.children))
+        #print(root.children)
         return 
 
     def set_barrier(self, pos, dir, chess_board):

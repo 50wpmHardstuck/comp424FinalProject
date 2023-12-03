@@ -21,9 +21,9 @@ class Node(object):
         self.children.append(node)
 
 
-    
 
 class MCTS(object):
+
     def __init__(self, root, chess_board, my_pos, adv_pos, max_steps):
         self.root = root
         self.chess_board = chess_board
