@@ -43,7 +43,7 @@ class MCTS(object):
         for (move, dir) in allowed_moves:
             child = Node(root, (move, dir))
             root.addChild(child)
-        print(len(root.children))
+        #print(len(root.children))
         return 
 
     def set_barrier(self, pos, dir, chess_board):
@@ -203,23 +203,29 @@ class MCTS(object):
     def find_best_move(self):
         root = self.root
         start_time = time.time()
-        time_taken = time.time() - start_time               
+        #time_taken = time.time() - start_time   
+        skip = False            
         for ind, n in enumerate(root.children):
             c_board = self.chess_board.copy()
             self.set_barrier(n.move, n.wall_place, c_board)
             res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
             self.back_prop(n, res)
+            time_taken = time.time() - start_time
+            if time_taken > 1.95:
+                skip = True
+                break
 
         #time issue on 12x12 is that we dont have enough time to visit eaach child once, maybe we should use heuristics
-        
-        while time_taken <= 1.95:
-            n = self.choose_next_expansion(root)
-            c_board = self.chess_board.copy()
-            self.set_barrier(n.move, n.wall_place, c_board)
-            res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
-            self.back_prop(n, res)
+        if not skip:
+            while time_taken <= 1.95:
+                n = self.choose_next_expansion(root)
+                c_board = self.chess_board.copy()
+                self.set_barrier(n.move, n.wall_place, c_board)
+                res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
+                self.back_prop(n, res)
             
-            time_taken = time.time() - start_time
+                time_taken = time.time() - start_time
+        
         counter = 0
         best_winrate = 0
         best_choice = None
@@ -227,11 +233,11 @@ class MCTS(object):
             best_choice = root.children[0]
             return best_choice.move, best_choice.wall_place
         for i in root.children:
-            if i.value/i.visits > best_winrate:
+            if i.visits > 0 and i.value/i.visits > best_winrate:
                 best_choice = i
                 best_winrate = i.value/i.visits
-        print(best_choice.value/best_choice.visits)
-        print(best_choice.visits)
+        #print(best_choice.value/best_choice.visits)
+        #print(best_choice.visits)
         return best_choice.move, best_choice.wall_place
 
 
@@ -353,9 +359,9 @@ class StudentAgent(Agent):
         uct_tree = MCTS(root, chess_board, my_pos, adv_pos, max_step)
         uct_tree.set_children(root)
         time_taken = time.time() - start_time
-        print(time_taken,'setup time')
+        #print(time_taken,'setup time')
         output = uct_tree.find_best_move()
-        print(time.time()-start_time, 'time to find best move')                         
+        #print(time.time()-start_time, 'time to find best move')                         
 
         '''while time_taken < 1.95:
             chess_board_copy = np.copy(chess_board)
@@ -364,10 +370,10 @@ class StudentAgent(Agent):
             #print(sims)
             time_taken = time.time()-start_time'''
         
-        print('NUMBER OF SIMS:', uct_tree.root.visits)
+        #print('NUMBER OF SIMS:', uct_tree.root.visits)
         time_taken = time.time() - start_time
 
-        print("My AI's turn took ", time_taken, "seconds.")
+        #print("My AI's turn took ", time_taken, "seconds.")
 
         # dummy return
         return output #my_pos, self.dir_map["u"]
