@@ -442,7 +442,7 @@ class StudentAgent(Agent):
             #print(sims)
             time_taken = time.time()-start_time'''
         
-        print('NUMBER OF SIMS:', uct_tree.root.visits)
+        print('NUMBER OF SIMS Student copy:', uct_tree.root.visits)
         time_taken = time.time() - start_time
 
         #print("My AI's turn took ", time_taken, "seconds.")

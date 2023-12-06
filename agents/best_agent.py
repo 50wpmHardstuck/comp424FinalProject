@@ -36,10 +36,13 @@ class MCTS(object):
         
     def set_children(self, root):
         allowed_moves = self.get_array_first_move()
+        print('number of possible moves:',len(allowed_moves))
+        if 4000//len(allowed_moves) < len(allowed_moves):
+            allowed_moves = random.sample(allowed_moves, 4000//len(allowed_moves))
         for (move, dir) in allowed_moves:
             child = Node(root, (move, dir))
             root.addChild(child)
-        #print(len(root.children))
+        print('number of children:',len(root.children))
         return 
 
     def set_barrier(self, pos, dir, chess_board):
@@ -228,7 +231,6 @@ class MCTS(object):
             
                 time_taken = time.time() - start_time
         
-        counter = 0
         best_winrate = 0
         best_choice = None
         if len(root.children) == 1:
@@ -430,7 +432,7 @@ class StudentAgent(Agent):
             #print(sims)
             time_taken = time.time()-start_time'''
         
-        print('NUMBER OF SIMS:', uct_tree.root.visits)
+        print('NUMBER OF SIMS BEST:', uct_tree.root.visits)
         time_taken = time.time() - start_time
 
         #print("My AI's turn took ", time_taken, "seconds.")
