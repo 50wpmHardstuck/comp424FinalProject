@@ -5,7 +5,6 @@ import sys
 import numpy as np
 from copy import deepcopy
 import time
-import random
 
 class Node(object):
     def __init__(self, parent, action):
@@ -15,16 +14,89 @@ class Node(object):
         self.value = 0
         self.move = action[0]          
         self.wall_place = action[1]
-        self.continuations = 0  #number of moves we can make after this move
+        self.continuations = 0   # number of moves we can make after this move,
         self.blocks = 0 #number of moves the opponent can make after this move
         
     def addChild(self, node):
         self.children.append(node)
 
+class MaxHeap(object):
+    def __init__(self, ns):
+        self.nodes = []
+        for node in ns:
+            self.add(node)
+        #print(self.nodes)
 
+    def swap(self, ind1, ind2):
+        tmp = self.nodes[ind1]
+        self.nodes[ind1] = self.nodes[ind2]
+        self.nodes[ind2] = tmp
+
+    def has_right_child(self, ind):
+        return (2*ind+2) < len(self.nodes)
+    
+    def has_left_child(self, ind):
+        return (2*ind+1) < len(self.nodes)
+    
+    def parent_ind(self, ind):
+        return (ind-1)//2
+    
+    def get_value(self, ind):
+        return self.nodes[ind].continuations + self.nodes[ind].blocks
+
+    def upheap(self, ind):
+        if ind == 0:
+            return self.nodes
+        else:
+            p_ind = self.parent_ind(ind)
+            if self.get_value(ind) > self.get_value(p_ind):
+                self.swap(self.parent_ind(ind), ind)
+                self.upheap(p_ind)
+            else:
+                return self.nodes
+            
+    def add(self, node):
+        self.nodes.append(node)
+        self.upheap(len(self.nodes)-1)
+
+    def downheap(self, ind):
+        #if we have no children then return
+        if not self.has_left_child(ind):    
+            return self.nodes
+        
+        if self.has_right_child(ind) and \
+            self.get_value(ind*2+1) < self.get_value(ind*2+2):
+            smaller_child = ind*2+2
+        else:
+            smaller_child = ind*2+1     #left child index since no right child
+
+        if self.get_value(ind) > self.get_value(smaller_child):
+            return self.nodes
+        else:
+            self.swap(ind, smaller_child)
+            return self.downheap(smaller_child)
+        
+    def get_max(self):
+        if len(self.nodes) == 0:
+            print('empty heap, cannot get max')
+            return None
+        max = self.nodes[0]
+        self.nodes[0] = self.nodes[len(self.nodes)-1]
+        self.nodes = self.nodes[:-1]
+        self.downheap(0)
+        #print(max)
+        return max
+    
+    def heapsort(self, num, input):
+        heap = MaxHeap(input)
+        output = []
+        max_ind = min(num, len(input))
+        for _ in range(max_ind):
+            output.append(heap.get_max())
+       # print(output)
+        return output   
 
 class MCTS(object):
-
     def __init__(self, root, chess_board, my_pos, adv_pos, max_steps):
         self.root = root
         self.chess_board = chess_board
@@ -35,21 +107,23 @@ class MCTS(object):
         self.max_step = max_steps
         
     def set_children(self, root):
-        allowed_moves = self.get_array_first_move()
-        '''
-        len_of_list = len(allowed_moves)
-        if  len_of_list > 4000//len_of_list:
-            allowed_moves = random.sample(allowed_moves, 4000//len_of_list)
-            '''
-        #if len(allowed_moves) == 1:
-           # child = Node(root, (allowed_moves[0][0], allowed_moves[0][1]))
-           # root.addChild(child)
-           # print(len(root.children))
-           # return
+        allowed_moves = self.get_array_first_move(self.my_pos, self.adv_pos, self.chess_board)
+
+        child_list = []
         for (move, dir) in allowed_moves:
             child = Node(root, (move, dir))
-            root.addChild(child)
-        #print(len(root.children))
+            self.set_barrier(move, dir, self.chess_board)
+           
+            child.continuations = len(self.get_array_first_move(move, self.adv_pos, self.chess_board))
+            child.blocks = len(self.get_array_first_move(self.adv_pos, move, self.chess_board))
+            self.unset_barrier(move, dir, self.chess_board)
+            child_list.append(child)
+        #print(child_list)
+        good_moves = MaxHeap.heapsort(self, 50, child_list)
+        for n in good_moves:
+            root.addChild(n)
+        print(len(root.children))
+        #print(root.children)
         return 
 
     def set_barrier(self, pos, dir, chess_board):
@@ -57,24 +131,27 @@ class MCTS(object):
         chess_board[r, c, dir] = True
         move = self.moves[dir]
         chess_board[r + move[0], c + move[1], self.opposites[dir]] = True
+
+    def unset_barrier(self, pos, dir, chess_board):
+        r, c = pos
+        chess_board[r, c, dir] = False
+        move = self.moves[dir]
+        chess_board[r + move[0], c + move[1], self.opposites[dir]] = False
         
     def check_boundary(self, pos):
         r, c = pos
         return 0 <= r < self.chess_board.shape[0] and 0 <= c < self.chess_board.shape[0]
     
-    def get_array_first_move(self):
-        adv_pos = self.adv_pos
-        
-        state_queue = [(self.my_pos, 0)]
+    def get_array_first_move(self, my_pos, adv_pos, chess_board):
+        state_queue = [(my_pos, 0)]
         allowed_moves = []
-        
+
         while state_queue:
             cur_pos, cur_step = state_queue.pop(0)
             r, c = cur_pos
             for dir, move in enumerate(self.moves):
                 next_pos = tuple(map(lambda x, y: x + y, cur_pos, move))
-                r_new, c_new = next_pos
-                if self.chess_board[r, c, dir]:
+                if chess_board[r, c, dir]:
                     continue
                 if (tuple(cur_pos), dir) in allowed_moves: #check if we already have the move
                     break
@@ -86,16 +163,11 @@ class MCTS(object):
                 if np.array_equal(next_pos, adv_pos): #check if the adversary is in the way
                     continue
                 state_queue.append((tuple(next_pos), cur_step + 1))
-                
+
         return allowed_moves
-    
-    def unset_barrier(self, pos, dir, chess_board):
-        r, c = pos
-        chess_board[r, c, dir] = False
-        move = self.moves[dir]
-        chess_board[r + move[0], c + move[1], self.opposites[dir]] = False
-    
-    def run_simulation_new(self, chess_board, my_pos, adv_pos, max_step):
+
+        
+    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         #print('starting a sim')
         p1 = RandomAgent()
         pos_p1 = adv_pos    #p1 is the enemy making a move first 
@@ -112,7 +184,7 @@ class MCTS(object):
                 #print(i)
                 prev_p1_pos = pos_p1
                 #print('adv move')
-                pos_p1, dir_p1 = p1.step_v2(chess_board, pos_p1, pos_p2, max_step)
+                pos_p1, dir_p1 = p1.step(chess_board, pos_p1, pos_p2, max_step)
                 self.set_barrier(pos_p1, dir_p1, chess_board)
                 ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
                 if ended:
@@ -142,7 +214,7 @@ class MCTS(object):
                 #print(i)
                 prev_pos_p2 = pos_p2
                 #print('my move')
-                pos_p2, dir_p2 = p1.step_v2(chess_board, pos_p2, pos_p1, max_step)
+                pos_p2, dir_p2 = p1.step(chess_board, pos_p2, pos_p1, max_step)
                 self.set_barrier(pos_p2, dir_p2, chess_board)
                 ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
                 if ended:
@@ -167,37 +239,6 @@ class MCTS(object):
                         #print('win')
                         return 1
                 break
-        print("This should not be happening!!!, ERROR")
-        return -1 #should never occur, error
-    
-        
-    def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
-        p1 = RandomAgent()
-        pos_p1 = adv_pos    #p1 is the enemy making a move first 
-        pos_p2 = my_pos   #p2 is us making out move second
-        ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-        if ended:
-                if s1 > s2: return 0
-                elif s1 == s2: return 0.5
-                else: return 1
-        while True:
-            #take a step, update the chess board and then check if the game ended
-            pos_p1, dir_p1 = p1.default_step(chess_board, pos_p1, pos_p2, max_step)
-            self.set_barrier(pos_p1, dir_p1, chess_board)
-            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-            if ended:
-                if s1 > s2: return 0
-                elif s1 == s2: return 0.5
-                else: return 1                  
-            pos_p2, dir_p2 = p1.default_step(chess_board, pos_p2, pos_p1, max_step)
-            #print(pos_p2, dir_p2)
-            self.set_barrier(pos_p2, dir_p2, chess_board)
-
-            ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-            if ended:
-                if s1 > s2: return 0
-                elif s1 == s2: return 0.5
-                else: return 1
         print("This should not be happening!!!, ERROR")
         return -1 #should never occur, error
     
@@ -299,13 +340,13 @@ class MCTS(object):
             res = self.run_simulation(c_board, n.move, self.adv_pos, self.max_step)
             self.back_prop(n, res)
             time_taken = time.time() - start_time
-            if time_taken > 1.95:
+            if time_taken > 1.92:
                 skip = True
                 break
-
+        print('time to run on each child once:', str(time.time()-start_time))
         #time issue on 12x12 is that we dont have enough time to visit eaach child once, maybe we should use heuristics
         if not skip:
-            while time_taken <= 1.95:
+            while time_taken <= 1.92:
                 n = self.choose_next_expansion(root)
                 c_board = self.chess_board.copy()
                 self.set_barrier(n.move, n.wall_place, c_board)
@@ -313,7 +354,9 @@ class MCTS(object):
                 self.back_prop(n, res)
             
                 time_taken = time.time() - start_time
-        
+
+        print('time after additional sims', str(time.time()-start_time))
+
         counter = 0
         best_winrate = 0
         best_choice = None
@@ -321,11 +364,14 @@ class MCTS(object):
             best_choice = root.children[0]
             return best_choice.move, best_choice.wall_place
         for i in root.children:
+            #print('node counter:', counter, i.value/i.visits, i.visits)
+            counter += 1
             if i.visits > 0 and i.value/i.visits > best_winrate:
                 best_choice = i
                 best_winrate = i.value/i.visits
-        #print(best_choice.value/best_choice.visits)
-        #print(best_choice.visits)
+        print('best winrate:', best_choice.value/best_choice.visits)
+        #print('best node visits:', best_choice.visits)
+        print('time looking for best move', str(time.time()- start_time))
         return best_choice.move, best_choice.wall_place
 
 
@@ -339,120 +385,8 @@ class RandomAgent(Agent):
         super(RandomAgent, self).__init__()
         self.name = "RandomAgent"
         self.autoplay = True
-        
-    def check_boundary(self, pos, chess_board):
-        r, c = pos
-        return 0 <= r < chess_board.shape[0] and 0 <= c < chess_board.shape[0]
-        
-    def get_array_first_move(self, my_pos, adv_pos, chess_board, max_step):
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        state_queue = [(my_pos, 0)]
-        allowed_moves = []
 
-        while state_queue:
-            cur_pos, cur_step = state_queue.pop(0)
-            r, c = cur_pos
-            for dir, move in enumerate(moves):
-                next_pos = tuple(map(lambda x, y: x + y, cur_pos, move))
-                if chess_board[r, c, dir]:
-                    continue
-                if (tuple(cur_pos), dir) in allowed_moves: #check if we already have the move
-                    break
-                allowed_moves.append((tuple(cur_pos), dir))
-                if cur_step == max_step:
-                    continue
-                if not self.check_boundary(next_pos, chess_board): #check if the move moves outside the boundary
-                    continue
-                if np.array_equal(next_pos, adv_pos): #check if the adversary is in the way
-                    continue
-                state_queue.append((tuple(next_pos), cur_step + 1))
-
-        return allowed_moves
-    
-    def step_v3(self, chess_board, my_pos, adv_pos, max_step):
-        first_move = self.get_array_first_move(my_pos, adv_pos, chess_board, max_step)
-        move = first_move[random.randint(0, len(first_move)-1)]
-        my_pos, dir = move
-
-        return my_pos, dir
-    
-    def check_valid_step(self, adv_pos, start_pos, end_pos, barrier_dir, chess_board, max_step):
-        """
-        Check if the step the agent takes is valid (reachable and within max steps).
-
-        Parameters
-        ----------
-        start_pos : tuple
-            The start position of the agent.
-        end_pos : np.ndarray
-            The end position of the agent.
-        barrier_dir : int
-            The direction of the barrier.
-        """
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        # Endpoint already has barrier or is border
-        r, c = end_pos
-        if chess_board[r, c, barrier_dir]:
-            return False
-        if np.array_equal(start_pos, end_pos):
-            return True
-
-        # BFS
-        state_queue = [(start_pos, 0)]
-        visited = {tuple(start_pos)}
-        is_reached = False
-        while state_queue and not is_reached:
-            cur_pos, cur_step = state_queue.pop(0)
-            r, c = cur_pos
-            if cur_step == max_step:
-                break
-            for dir, move in enumerate(moves):
-                if chess_board[r, c, dir]:
-                    continue
-
-                next_pos = cur_pos + move
-                if np.array_equal(next_pos, adv_pos) or tuple(next_pos) in visited:
-                    continue
-                if np.array_equal(next_pos, end_pos):
-                    is_reached = True
-                    break
-
-                visited.add(tuple(next_pos))
-                state_queue.append((next_pos, cur_step + 1))
-
-        return is_reached
-    
-    def check_one_move_win(self, chess_board, my_pos, adv_pos, max_step):
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        reverse_wall = {0:2, 1:3, 2:0, 3:1}
-        r, c = adv_pos
-        dir0 = int(chess_board[r, c, 0])
-        dir1 = int(chess_board[r, c, 1])
-        dir2 = int(chess_board[r, c, 2])
-        dir3 = int(chess_board[r, c, 3])
-        wall_to_build = 0
-        if(dir0+dir1+dir2+dir3 == 3):
-            if dir1 == False:
-                wall_to_build = 1
-            elif dir2 == False:
-                wall_to_build = 2
-            elif dir3 == False:
-                wall_to_build = 3
-            move = moves[wall_to_build]
-            pos_to_block = tuple(map(lambda x, y: x + y, adv_pos, move))
-            possible_moves = self.get_array_first_move(my_pos, adv_pos, chess_board, max_step)
-            if (pos_to_block, wall_to_build) in possible_moves:
-                return pos_to_block, reverse_wall[wall_to_build]
-            else:
-                return 0
-        return 0
-        
-    def default_step(self, chess_board, my_pos, adv_pos, max_step):
-        can_block = self.check_one_move_win(chess_board, my_pos, adv_pos, max_step)
-        if can_block != 0:
-            my_pos, dir = can_block
-            return my_pos, dir
-              
+    def step(self, chess_board, my_pos, adv_pos, max_step):
         # Moves (Up, Right, Down, Left)
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         steps = np.random.randint(0, max_step + 1)
@@ -483,85 +417,28 @@ class RandomAgent(Agent):
         # Possibilities, any direction such that chess_board is False
         allowed_barriers=[i for i in range(0,4) if not chess_board[r,c,i]]
         # Sanity check, no way to be fully enclosed in a square, else game already ended
-        assert len(allowed_barriers)>=1 
+        try:
+            assert len(allowed_barriers)>=1 
+        except:
+            print('my_pos', my_pos)
+            print('adv_pos', adv_pos)
+            print(chess_board)
+            assert len(allowed_barriers)>=1 
         dir = allowed_barriers[np.random.randint(0, len(allowed_barriers))]
         #print(allowed_dirs)
-        return my_pos, dir
-
-    def step_v2(self, chess_board, my_pos, adv_pos, max_step):
-        can_block = self.check_one_move_win(chess_board, my_pos, adv_pos, max_step)
-        if can_block != 0:
-            my_pos, dir = can_block
-            return my_pos, dir
-        # Moves (Up, Right, Down, Left)
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        r, c = my_pos
-        count_walls_start = int(chess_board[r, c, 0]) + int(chess_board[r, c, 1]) + int(chess_board[r, c, 2]) + int(chess_board[r, c, 3])
-        if (count_walls_start < 3):
-            steps = np.random.randint(0, max_step + 1)
-        else:
-            steps = np.random.randint(1, max_step + 1)
-        #steps = np.random.randint(0, max_step + 1)
-        # Pick steps random but allowable moves
-        count_walls = 4
-        break_loop = False
-        r_new, c_new = my_pos
-        og_pos = my_pos
-        #allowed_tries = 0
-        while(True):
-            #allowed_tries += 1
-            my_pos = og_pos
-            for _ in range(steps):
-                r, c = my_pos
-                # Build a list of the moves we can make
-                allowed_dirs = [ d                                
-                    for d in range(0,4)                           # 4 moves possible
-                    if not chess_board[r,c,d] and                 # chess_board True means wall
-                    not adv_pos == (r+moves[d][0],c+moves[d][1])] # cannot move through Adversary
-                if len(allowed_dirs)==0:
-                    # If no possible move, we must be enclosed by our Adversary
-                    break_loop = True
-                    break
-                random_dir = allowed_dirs[np.random.randint(0, len(allowed_dirs))]
-                # This is how to update a row,col by the entries in moves 
-                # to be consistent with game logic
-                m_r, m_c = moves[random_dir]
-                my_pos = (r + m_r, c + m_c)
-                r_new = r+m_r
-                c_new = c+m_c  
-                #print(int(chess_board[r_new, c_new, 0]))
-            
-            if(break_loop == True):
-                break
-            #print(chess_board[r_new, c_new, 0], chess_board[r_new, c_new, 1], chess_board[r_new, c_new, 2], chess_board[r_new, c_new, 3])
-            count_walls = int(chess_board[r_new, c_new, 0]) + int(chess_board[r_new, c_new, 1]) + int(chess_board[r_new, c_new, 2]) + int(chess_board[r_new, c_new, 3])
-            if (count_walls < 3):
-                break
-            if (count_walls_start < 3):
-                steps = np.random.randint(0, max_step + 1)
-            else:
-                steps = np.random.randint(1, max_step + 1)
-
-        # Final portion, pick where to put our new barrier, at random
-        r, c = my_pos
-        # Possibilities, any direction such that chess_board is False
-        allowed_barriers=[i for i in range(0,4) if not chess_board[r,c,i]]
-        # Sanity check, no way to be fully enclosed in a square, else game already ended
-        assert len(allowed_barriers)>=1 
-        dir = allowed_barriers[np.random.randint(0, len(allowed_barriers))]
-
+        #print(my_pos, dir)
         return my_pos, dir
 
 
-@register_agent("student_agent")
-class StudentAgent(Agent):
+@register_agent("improved_agent")
+class BetterStudent(Agent):
     """
     A dummy class for your implementation. Feel free to use this class to
     add any helper functionalities needed for your agent.
     """
 
     def __init__(self):
-        super(StudentAgent, self).__init__()
+        super(BetterStudent, self).__init__()
         self.name = "StudentAgent"
         self.dir_map = {
             "u": 0,
@@ -599,18 +476,18 @@ class StudentAgent(Agent):
         uct_tree = MCTS(root, chess_board, my_pos, adv_pos, max_step)
         uct_tree.set_children(root)
         time_taken = time.time() - start_time
-        #print(time_taken,'setup time')
+        print(time_taken,'setup time improved')
         output = uct_tree.find_best_move()
-        #print(time.time()-start_time, 'time to find best move')                         
+        print(time.time()-start_time, 'time to find best move improved')                         
 
         '''while time_taken < 1.95:
-            chess_board_copy = np.copy(chess_board)
+            chess_board_copy = np.copy(chess_board)ç
             self.run_simulation(chess_board_copy, my_pos, adv_pos, max_step)
             sims += 1
             #print(sims)
             time_taken = time.time()-start_time'''
         
-        print('NUMBER OF SIMS:', uct_tree.root.visits)
+        print('NUMBER OF SIMS improved:', uct_tree.root.visits)
         time_taken = time.time() - start_time
 
         #print("My AI's turn took ", time_taken, "seconds.")

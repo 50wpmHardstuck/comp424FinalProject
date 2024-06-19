@@ -36,20 +36,13 @@ class MCTS(object):
         
     def set_children(self, root):
         allowed_moves = self.get_array_first_move()
-        '''
-        len_of_list = len(allowed_moves)
-        if  len_of_list > 4000//len_of_list:
-            allowed_moves = random.sample(allowed_moves, 4000//len_of_list)
-            '''
-        #if len(allowed_moves) == 1:
-           # child = Node(root, (allowed_moves[0][0], allowed_moves[0][1]))
-           # root.addChild(child)
-           # print(len(root.children))
-           # return
+        print('number of possible moves:',len(allowed_moves))
+        if 4000//len(allowed_moves) < len(allowed_moves):
+            allowed_moves = random.sample(allowed_moves, 4000//len(allowed_moves))
         for (move, dir) in allowed_moves:
             child = Node(root, (move, dir))
             root.addChild(child)
-        #print(len(root.children))
+        print('number of children:',len(root.children))
         return 
 
     def set_barrier(self, pos, dir, chess_board):
@@ -94,82 +87,6 @@ class MCTS(object):
         chess_board[r, c, dir] = False
         move = self.moves[dir]
         chess_board[r + move[0], c + move[1], self.opposites[dir]] = False
-    
-    def run_simulation_new(self, chess_board, my_pos, adv_pos, max_step):
-        #print('starting a sim')
-        p1 = RandomAgent()
-        pos_p1 = adv_pos    #p1 is the enemy making a move first 
-        pos_p2 = my_pos   #p2 is us making out move second
-        ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-        if ended:
-                if s1 > s2: return 0
-                elif s1 == s2: return 0.5
-                else: return 1
-
-        while True:
-            #take a step, update the chess board and then check if the game ended
-            for i in range(0, 5):
-                #print(i)
-                prev_p1_pos = pos_p1
-                #print('adv move')
-                pos_p1, dir_p1 = p1.step_v2(chess_board, pos_p1, pos_p2, max_step)
-                self.set_barrier(pos_p1, dir_p1, chess_board)
-                ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-                if ended:
-                    #print('in end step')
-                    #print(s1, s2)
-                    #print(i)
-                    #print('after adv move, adv score:', s1, 'my score:', s2)
-                    if i == 4:
-                        return s1 < s2
-                    if s1 < 3 and i < 4: 
-                        #print('tried step again')
-                        self.unset_barrier(pos_p1, dir_p1, chess_board)
-                        pos_p1 = prev_p1_pos     
-                        continue
-                    elif s1 > s2: 
-                        #print('lost') 
-                        return 0
-                    elif s1 == s2: 
-                        #print('draw')
-                        return 0.5
-                    else: 
-                        #print('win')
-                        return 1
-                break
-            #print('actually switched to other loop')
-            for j in range(0, 5):
-                #print(i)
-                prev_pos_p2 = pos_p2
-                #print('my move')
-                pos_p2, dir_p2 = p1.step_v2(chess_board, pos_p2, pos_p1, max_step)
-                self.set_barrier(pos_p2, dir_p2, chess_board)
-                ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
-                if ended:
-                    #print('in end step')
-                    #print(s1, s2)
-                    #print(j)
-                    #print('after my move, adv score:', s1, 'my score:', s2)
-                    if j == 4:
-                        return s1 < s2
-                    if s2 < 3 and j < 4:
-                        #print('tried step again')
-                        self.unset_barrier(pos_p2, dir_p2, chess_board)
-                        pos_p2 = prev_pos_p2
-                        continue
-                    elif s1 > s2: 
-                        #print('lost') 
-                        return 0
-                    elif s1 == s2: 
-                        #print('draw')
-                        return 0.5
-                    else: 
-                        #print('win')
-                        return 1
-                break
-        print("This should not be happening!!!, ERROR")
-        return -1 #should never occur, error
-    
         
     def run_simulation(self, chess_board, my_pos, adv_pos, max_step):
         p1 = RandomAgent()
@@ -182,14 +99,14 @@ class MCTS(object):
                 else: return 1
         while True:
             #take a step, update the chess board and then check if the game ended
-            pos_p1, dir_p1 = p1.default_step(chess_board, pos_p1, pos_p2, max_step)
+            pos_p1, dir_p1 = p1.step_v2(chess_board, pos_p1, pos_p2, max_step)
             self.set_barrier(pos_p1, dir_p1, chess_board)
             ended, s1, s2 = self.check_endgame(chess_board, pos_p1, pos_p2)
             if ended:
                 if s1 > s2: return 0
                 elif s1 == s2: return 0.5
                 else: return 1                  
-            pos_p2, dir_p2 = p1.default_step(chess_board, pos_p2, pos_p1, max_step)
+            pos_p2, dir_p2 = p1.step_v2(chess_board, pos_p2, pos_p1, max_step)
             #print(pos_p2, dir_p2)
             self.set_barrier(pos_p2, dir_p2, chess_board)
 
@@ -314,7 +231,6 @@ class MCTS(object):
             
                 time_taken = time.time() - start_time
         
-        counter = 0
         best_winrate = 0
         best_choice = None
         if len(root.children) == 1:
@@ -369,59 +285,6 @@ class RandomAgent(Agent):
 
         return allowed_moves
     
-    def step_v3(self, chess_board, my_pos, adv_pos, max_step):
-        first_move = self.get_array_first_move(my_pos, adv_pos, chess_board, max_step)
-        move = first_move[random.randint(0, len(first_move)-1)]
-        my_pos, dir = move
-
-        return my_pos, dir
-    
-    def check_valid_step(self, adv_pos, start_pos, end_pos, barrier_dir, chess_board, max_step):
-        """
-        Check if the step the agent takes is valid (reachable and within max steps).
-
-        Parameters
-        ----------
-        start_pos : tuple
-            The start position of the agent.
-        end_pos : np.ndarray
-            The end position of the agent.
-        barrier_dir : int
-            The direction of the barrier.
-        """
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        # Endpoint already has barrier or is border
-        r, c = end_pos
-        if chess_board[r, c, barrier_dir]:
-            return False
-        if np.array_equal(start_pos, end_pos):
-            return True
-
-        # BFS
-        state_queue = [(start_pos, 0)]
-        visited = {tuple(start_pos)}
-        is_reached = False
-        while state_queue and not is_reached:
-            cur_pos, cur_step = state_queue.pop(0)
-            r, c = cur_pos
-            if cur_step == max_step:
-                break
-            for dir, move in enumerate(moves):
-                if chess_board[r, c, dir]:
-                    continue
-
-                next_pos = cur_pos + move
-                if np.array_equal(next_pos, adv_pos) or tuple(next_pos) in visited:
-                    continue
-                if np.array_equal(next_pos, end_pos):
-                    is_reached = True
-                    break
-
-                visited.add(tuple(next_pos))
-                state_queue.append((next_pos, cur_step + 1))
-
-        return is_reached
-    
     def check_one_move_win(self, chess_board, my_pos, adv_pos, max_step):
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         reverse_wall = {0:2, 1:3, 2:0, 3:1}
@@ -446,47 +309,6 @@ class RandomAgent(Agent):
             else:
                 return 0
         return 0
-        
-    def default_step(self, chess_board, my_pos, adv_pos, max_step):
-        can_block = self.check_one_move_win(chess_board, my_pos, adv_pos, max_step)
-        if can_block != 0:
-            my_pos, dir = can_block
-            return my_pos, dir
-              
-        # Moves (Up, Right, Down, Left)
-        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
-        steps = np.random.randint(0, max_step + 1)
-
-        # Pick steps random but allowable moves
-        for _ in range(steps):
-            r, c = my_pos
-
-            # Build a list of the moves we can make
-            allowed_dirs = [ d                                
-                for d in range(0,4)                           # 4 moves possible
-                if not chess_board[r,c,d] and                 # chess_board True means wall
-                not adv_pos == (r+moves[d][0],c+moves[d][1])] # cannot move through Adversary
-
-            if len(allowed_dirs)==0:
-                # If no possible move, we must be enclosed by our Adversary
-                break
-
-            random_dir = allowed_dirs[np.random.randint(0, len(allowed_dirs))]
-
-            # This is how to update a row,col by the entries in moves 
-            # to be consistent with game logic
-            m_r, m_c = moves[random_dir]
-            my_pos = (r + m_r, c + m_c)
-
-        # Final portion, pick where to put our new barrier, at random
-        r, c = my_pos
-        # Possibilities, any direction such that chess_board is False
-        allowed_barriers=[i for i in range(0,4) if not chess_board[r,c,i]]
-        # Sanity check, no way to be fully enclosed in a square, else game already ended
-        assert len(allowed_barriers)>=1 
-        dir = allowed_barriers[np.random.randint(0, len(allowed_barriers))]
-        #print(allowed_dirs)
-        return my_pos, dir
 
     def step_v2(self, chess_board, my_pos, adv_pos, max_step):
         can_block = self.check_one_move_win(chess_board, my_pos, adv_pos, max_step)
@@ -553,7 +375,7 @@ class RandomAgent(Agent):
         return my_pos, dir
 
 
-@register_agent("student_agent")
+@register_agent("best_agent")
 class StudentAgent(Agent):
     """
     A dummy class for your implementation. Feel free to use this class to
@@ -610,7 +432,7 @@ class StudentAgent(Agent):
             #print(sims)
             time_taken = time.time()-start_time'''
         
-        print('NUMBER OF SIMS:', uct_tree.root.visits)
+        print('NUMBER OF SIMS BEST:', uct_tree.root.visits)
         time_taken = time.time() - start_time
 
         #print("My AI's turn took ", time_taken, "seconds.")
